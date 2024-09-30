@@ -1,0 +1,73 @@
+memcheck:
+----------------------------------------------------
+valgrind --leak-check=full --track-origins=yes ./project
+==3110== Memcheck, a memory error detector
+==3110== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.
+==3110== Using Valgrind-3.18.1 and LibVEX; rerun with -h for copyright info
+==3110== Command: ./project
+==3110== 
+
+Enter command (addEdge, printGraph, solveMST <algorithm>, or exit): exit
+==3110== 
+==3110== HEAP SUMMARY:
+==3110==     in use at exit: 0 bytes in 0 blocks
+==3110==   total heap usage: 16 allocs, 16 frees, 76,600 bytes allocated
+==3110== 
+==3110== All heap blocks were freed -- no leaks are possible
+==3110== 
+==3110== For lists of detected and suppressed errors, rerun with: -s
+==3110== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+
+
+
+
+
+helgrind:
+---------------------------------------------------------------
+
+valgrind --tool=helgrind ./project
+==3117== Helgrind, a thread error detector
+==3117== Copyright (C) 2007-2017, and GNU GPL'd, by OpenWorks LLP et al.
+==3117== Using Valgrind-3.18.1 and LibVEX; rerun with -h for copyright info
+==3117== Command: ./project
+==3117== 
+ex
+Enter command (addEdge, printGraph, solveMST <algorithm>, or exit)exit
+==3117== ---Thread-Announcement------------------------------------------
+==3117== 
+==3117== Thread #1 is the program's root thread
+==3117== 
+==3117== ----------------------------------------------------------------
+==3117== 
+==3117== Thread #1: pthread_cond_{signal,broadcast}: dubious: associated lock is not held by any thread
+==3117==    at 0x48515C6: ??? (in /usr/libexec/valgrind/vgpreload_helgrind-amd64-linux.so)
+==3117==    by 0x10E7BE: ThreadPool::~ThreadPool() (in /home/oversleep3r/project)
+==3117==    by 0x10EC87: MSTServer::~MSTServer() (in /home/oversleep3r/project)
+==3117==    by 0x10A763: main (in /home/oversleep3r/project)
+==3117== 
+==3117== 
+==3117== Use --history-level=approx or =none to gain increased speed, at
+==3117== the cost of reduced accuracy of conflicting-access information
+==3117== For lists of detected and suppressed errors, rerun with: -s
+==3117== ERROR SUMMARY: 1 errors from 1 contexts (suppressed: 43 from 12)
+
+
+
+
+
+cg:
+---------------------------------------------------------------------
+valgrind --tool=callgrind ./project
+==3124== Callgrind, a call-graph generating cache profiler
+==3124== Copyright (C) 2002-2017, and GNU GPL'd, by Josef Weidendorfer et al.
+==3124== Using Valgrind-3.18.1 and LibVEX; rerun with -h for copyright info
+==3124== Command: ./project
+==3124== 
+==3124== For interactive control, run 'callgrind_control -h'.
+
+Enter command (addEdge, printGraph, solveMST <algorithm>, or exit): exit
+==3124== 
+==3124== Events    : Ir
+==3124== Collected : 2389764
+==3124== 
+==3124== I   refs:      2,389,764
