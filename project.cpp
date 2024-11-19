@@ -1,470 +1,185 @@
 #include <iostream>
 #include <vector>
-#include <list>
-#include <unordered_map>
 #include <queue>
-#include <algorithm>
-#include <string>
-#include <sstream>
-#include <thread>
-#include <future>
 #include <mutex>
+#include <thread>
 #include <condition_variable>
 #include <functional>
-#include <atomic>
-#include <climits>
-using namespace std;
+#include <cmath>
+#include <algorithm>
 
-
+class Edge {
+public:
+    int src, dest, weight;
+    Edge(int s, int d, int w) : src(s), dest(d), weight(w) {}
+};
 
 class Graph {
 private:
-    unordered_map<int, list<pair<int, int>>> adjList;
+    int vertices;
+    std::vector<std::vector<Edge>> adjList;
 
 public:
-    void addEdge(int u, int v, int weight, bool isDirected = false) {
-        adjList[u].push_back({v, weight});
-        if (!isDirected) {
-            adjList[v].push_back({u, weight});
-        }
+    Graph(int v) : vertices(v), adjList(v) {}
+
+    void addEdge(int src, int dest, int weight) {
+        adjList[src].emplace_back(src, dest, weight);
+        adjList[dest].emplace_back(dest, src, weight);
     }
 
-    void printGraph() {
-        for (auto& vertex : adjList) {
-            cout << "Vertex " << vertex.first << ":";
-            for (auto& neighbor : vertex.second) {
-                cout << " -> (" << neighbor.first << ", " << neighbor.second << ")";
-            }
-            cout << endl;
-        }
+    const std::vector<Edge>& getEdges(int vertex) const {
+        return adjList[vertex];
     }
 
-    const unordered_map<int, list<pair<int, int>>>& getAdjList() const {
-        return adjList;
+    int numVertices() const {
+        return vertices;
     }
 };
 
-class MSTAlgorithm {
+class MSTMeasurements {
 public:
-    virtual void solve(Graph& graph) = 0;
-    virtual ~MSTAlgorithm() = default;
-};
-
-class PrimMST : public MSTAlgorithm {
-public:
-    void solve(Graph& graph) override {
-        cout << "Running Prim's Algorithm for MST...\n";
-
-        const unordered_map<int, list<pair<int, int>>>& adjList = graph.getAdjList();
-
-        if (adjList.empty()) {
-            cout << "Graph is empty, no MST possible." << endl;
-            return;
-        }
-
-        unordered_map<int, bool> inMST;
-        unordered_map<int, int> key;
-        unordered_map<int, int> parent;
-
-        for (const auto& vertex : adjList) {
-            key[vertex.first] = INT_MAX;
-            inMST[vertex.first] = false;
-        }
-
-        priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>> pq;
-
-        int startVertex = adjList.begin()->first;
-        key[startVertex] = 0;
-        parent[startVertex] = -1;
-        pq.push({0, startVertex});
-
-        while (!pq.empty()) {
-            int u = pq.top().second;
-            pq.pop();
-
-            inMST[u] = true;
-
-            for (const auto& neighbor : adjList.at(u)) {
-                int v = neighbor.first;
-                int weight = neighbor.second;
-
-                if (!inMST[v] && key[v] > weight) {
-                    key[v] = weight;
-                    parent[v] = u;
-                    pq.push({key[v], v});
-                }
-            }
-        }
-
-        int totalWeight = 0;
-        cout << "Minimum Spanning Tree edges:\n";
-        for (const auto& vertex : adjList) {
-            int v = vertex.first;
-            if (parent[v] != -1) {
-                cout << "Edge: (" << parent[v] << " - " << v << ") with weight " << key[v] << "\n";
-                totalWeight += key[v];
-            }
-        }
-        cout << "Total weight of MST: " << totalWeight << endl;
-    }
-};
-
-class KruskalMST : public MSTAlgorithm {
-private:
-    int findParent(int vertex, vector<int>& parent) {
-        if (parent[vertex] != vertex) {
-            parent[vertex] = findParent(parent[vertex], parent);
-        }
-        return parent[vertex];
-    }
-
-    void unionSets(int u, int v, vector<int>& parent, vector<int>& rank) {
-        int rootU = findParent(u, parent);
-        int rootV = findParent(v, parent);
-
-        if (rootU != rootV) {
-            if (rank[rootU] > rank[rootV]) {
-                parent[rootV] = rootU;
-            } else if (rank[rootU] < rank[rootV]) {
-                parent[rootU] = rootV;
-            } else {
-                parent[rootV] = rootU;
-                rank[rootU]++;
-            }
-        }
-    }
-
-public:
-    void solve(Graph& graph) override {
-        cout << "Running Kruskal's Algorithm for MST...\n";
-
-        const unordered_map<int, list<pair<int, int>>>& adjList = graph.getAdjList();
-        int numVertices = adjList.size();
-        if (numVertices == 0) {
-            cout << "Graph is empty, no MST possible." << endl;
-            return;
-        }
-
-        vector<pair<int, pair<int, int>>> edges;
-        for (const auto& vertex : adjList) {
-            int u = vertex.first;
-            for (const auto& neighbor : vertex.second) {
-                int v = neighbor.first;
-                int weight = neighbor.second;
-                if (u < v) {
-                    edges.push_back({weight, {u, v}});
-                }
-            }
-        }
-
-        sort(edges.begin(), edges.end());
-        vector<int> parent(numVertices);
-        vector<int> rank(numVertices, 0);
-        for (int i = 0; i < numVertices; ++i) {
-            parent[i] = i;
-        }
-
-        vector<pair<int, int>> mstEdges;
-        int totalWeight = 0;
-
-        for (const auto& edge : edges) {
-            int weight = edge.first;
-            int u = edge.second.first;
-            int v = edge.second.second;
-
-            int rootU = findParent(u, parent);
-            int rootV = findParent(v, parent);
-
-            if (rootU != rootV) {
-                mstEdges.push_back({u, v});
-                totalWeight += weight;
-                unionSets(rootU, rootV, parent, rank);
-            }
-        }
-
-        cout << "Minimum Spanning Tree edges:\n";
+    static int totalWeight(const std::vector<Edge>& mstEdges) {
+        int weight = 0;
         for (const auto& edge : mstEdges) {
-            cout << "Edge: (" << edge.first << " - " << edge.second << ")\n";
+            weight += edge.weight;
         }
-        cout << "Total weight of MST: " << totalWeight << endl;
+        return weight;
     }
-};
 
+    static int longestDistance(const Graph& mst) {
+        int maxDistance = 0;
+        for (int i = 0; i < mst.numVertices(); ++i) {
+            maxDistance = std::max(maxDistance, bfsLongestPath(mst, i));
+        }
+        return maxDistance;
+    }
 
-class BoruvkaMST : public MSTAlgorithm {
+    static double averageDistance(const Graph& mst) {
+        int totalDistance = 0;
+        int pairCount = 0;
+        for (int i = 0; i < mst.numVertices(); ++i) {
+            for (int j = i + 1; j < mst.numVertices(); ++j) {
+                totalDistance += bfsShortestPath(mst, i, j);
+                ++pairCount;
+            }
+        }
+        return pairCount > 0 ? (double)totalDistance / pairCount : 0.0;
+    }
+
+    static int shortestDistance(const Graph& mst, int src, int dest) {
+        return bfsShortestPath(mst, src, dest);
+    }
+
 private:
-    int findParent(int vertex, vector<int>& parent) {
-        if (parent[vertex] != vertex) {
-            parent[vertex] = findParent(parent[vertex], parent);
-        }
-        return parent[vertex];
-    }
+    static int bfsLongestPath(const Graph& mst, int start) {
+        std::queue<std::pair<int, int>> q;
+        std::vector<bool> visited(mst.numVertices(), false);
+        q.push({start, 0});
+        int maxDistance = 0;
 
-    void unionSets(int u, int v, vector<int>& parent, vector<int>& rank) {
-        int rootU = findParent(u, parent);
-        int rootV = findParent(v, parent);
+        while (!q.empty()) {
+            auto [vertex, dist] = q.front();
+            q.pop();
+            if (visited[vertex]) continue;
+            visited[vertex] = true;
+            maxDistance = std::max(maxDistance, dist);
 
-        if (rootU != rootV) {
-            if (rank[rootU] > rank[rootV]) {
-                parent[rootV] = rootU;
-            } else if (rank[rootU] < rank[rootV]) {
-                parent[rootU] = rootV;
-            } else {
-                parent[rootV] = rootU;
-                rank[rootU]++;
-            }
-        }
-    }
-
-public:
-    void solve(Graph& graph) override {
-        cout << "Running Boruvka's Algorithm for MST...\n";
-
-        const unordered_map<int, list<pair<int, int>>>& adjList = graph.getAdjList();
-        int numVertices = adjList.size();
-
-        if (numVertices == 0) {
-            cout << "Graph is empty, no MST possible." << endl;
-            return;
-        }
-
-        vector<int> parent(numVertices);
-        vector<int> rank(numVertices, 0);
-
-        for (int i = 0; i < numVertices; ++i) {
-            parent[i] = i;
-        }
-
-        vector<pair<int, pair<int, int>>> mstEdges;
-        int totalWeight = 0;
-
-        int numComponents = numVertices;
-
-        while (numComponents > 1) {
-            vector<pair<int, int>> cheapest(numVertices, {-1, -1});
-
-            for (const auto& vertex : adjList) {
-                int u = vertex.first;
-                for (const auto& neighbor : vertex.second) {
-                    int v = neighbor.first;
-                    int weight = neighbor.second;
-
-                    int setU = findParent(u, parent);
-                    int setV = findParent(v, parent);
-
-                    if (setU != setV) {
-                        if (cheapest[setU].first == -1 || cheapest[setU].first > weight) {
-                            cheapest[setU] = {weight, v};
-                        }
-                        if (cheapest[setV].first == -1 || cheapest[setV].first > weight) {
-                            cheapest[setV] = {weight, u};
-                        }
-                    }
-                }
-            }
-
-            for (int u = 0; u < numVertices; ++u) {
-                if (cheapest[u].first != -1) {
-                    int v = cheapest[u].second;
-                    int weight = cheapest[u].first;
-
-                    int setU = findParent(u, parent);
-                    int setV = findParent(v, parent);
-
-                    if (setU != setV) {
-                        unionSets(setU, setV, parent, rank);
-                        mstEdges.push_back({u, {v, weight}});
-                        totalWeight += weight;
-                        numComponents--; 
-                    }
+            for (const auto& edge : mst.getEdges(vertex)) {
+                if (!visited[edge.dest]) {
+                    q.push({edge.dest, dist + edge.weight});
                 }
             }
         }
+        return maxDistance;
+    }
 
-        cout << "Minimum Spanning Tree edges:\n";
-        for (const auto& edge : mstEdges) {
-            cout << "Edge: (" << edge.first << " - " << edge.second.first << ") with weight " << edge.second.second << "\n";
+    static int bfsShortestPath(const Graph& mst, int src, int dest) {
+        std::queue<std::pair<int, int>> q;
+        std::vector<bool> visited(mst.numVertices(), false);
+        q.push({src, 0});
+
+        while (!q.empty()) {
+            auto [vertex, dist] = q.front();
+            q.pop();
+            if (vertex == dest) return dist;
+            if (visited[vertex]) continue;
+            visited[vertex] = true;
+
+            for (const auto& edge : mst.getEdges(vertex)) {
+                if (!visited[edge.dest]) {
+                    q.push({edge.dest, dist + edge.weight});
+                }
+            }
         }
-        cout << "Total weight of MST: " << totalWeight << endl;
+        return -1; // No path found
     }
 };
 
+class ActiveObject {
+public:
+    ActiveObject() : running(true), worker(&ActiveObject::process, this) {}
 
+    ~ActiveObject() {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            running = false;
+        }
+        condVar.notify_all();
+        if (worker.joinable()) {
+            worker.join();
+        }
+    }
 
-class TarjanMST : public MSTAlgorithm {
+    void addTask(std::function<void()> task) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        tasks.push(task);
+        condVar.notify_one();
+    }
+
 private:
-    void dfs(int v, int parent, vector<int>& low, vector<int>& disc, vector<bool>& inMST, vector<pair<int, int>>& mstEdges, int& time, const unordered_map<int, list<pair<int, int>>>& adjList, int& totalWeight) {
-        disc[v] = low[v] = ++time;
-        inMST[v] = true;
-
-        for (const auto& neighbor : adjList.at(v)) {
-            int u = neighbor.first;
-            int weight = neighbor.second;
-
-            if (!inMST[u]) { 
-                mstEdges.push_back({v, u});
-                totalWeight += weight;
-                dfs(u, v, low, disc, inMST, mstEdges, time, adjList, totalWeight);
-                low[v] = min(low[v], low[u]);
-            } else if (u != parent) {
-                low[v] = min(low[v], disc[u]);
-            }
-        }
-    }
-
-public:
-    void solve(Graph& graph) override {
-        cout << "Running Tarjan's Algorithm for MST...\n";
-
-        const unordered_map<int, list<pair<int, int>>>& adjList = graph.getAdjList();
-        int numVertices = adjList.size();
-
-        if (numVertices == 0) {
-            cout << "Graph is empty, no MST possible." << endl;
-            return;
-        }
-
-        vector<int> low(numVertices, -1);
-        vector<int> disc(numVertices, -1); 
-        vector<bool> inMST(numVertices, false); 
-        vector<pair<int, int>> mstEdges; 
-        int time = 0;
-        int totalWeight = 0; 
-
-   
-        for (int i = 0; i < numVertices; ++i) {
-            if (!inMST[i]) {
-                dfs(i, -1, low, disc, inMST, mstEdges, time, adjList, totalWeight);
-            }
-        }
-
-
-        cout << "Minimum Spanning Tree edges:\n";
-        for (const auto& edge : mstEdges) {
-            cout << "Edge: (" << edge.first << " - " << edge.second << ")\n";
-        }
-        cout << "Total weight of MST: " << totalWeight << endl;
-    }
-};
-
-
-class IntegerMST : public MSTAlgorithm {
-public:
-    void solve(Graph& graph) override {
-        cout << "Running Integer MST Algorithm...\n";
-
-        const unordered_map<int, list<pair<int, int>>>& adjList = graph.getAdjList();
-        int numVertices = adjList.size();
-
-        if (numVertices == 0) {
-            cout << "Graph is empty, no MST possible." << endl;
-            return;
-        }
-
-
-        unordered_map<int, bool> inMST;
-        unordered_map<int, int> key;
-        unordered_map<int, int> parent;
-        int totalWeight = 0; 
-
-        for (const auto& vertex : adjList) {
-            key[vertex.first] = INT_MAX;
-            inMST[vertex.first] = false;
-        }
-
-
-        priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>> pq;
-
-        int startVertex = adjList.begin()->first;
-        key[startVertex] = 0;
-        parent[startVertex] = -1;
-        pq.push({0, startVertex});
-
-        while (!pq.empty()) {
-            int u = pq.top().second;
-            pq.pop();
-
-            inMST[u] = true;
-
-            for (const auto& neighbor : adjList.at(u)) {
-                int v = neighbor.first;
-                int weight = neighbor.second;
-
-                if (!inMST[v] && key[v] > weight) {
-                    key[v] = weight;
-                    parent[v] = u;
-                    pq.push({key[v], v});
+    void process() {
+        while (true) {
+            std::function<void()> task;
+            {
+                std::unique_lock<std::mutex> lock(mutex_);
+                condVar.wait(lock, [this] { return !tasks.empty() || !running; });
+                if (!running && tasks.empty()) {
+                    break;
                 }
+                task = tasks.front();
+                tasks.pop();
             }
-        }
-
-
-        cout << "Minimum Spanning Tree edges:\n";
-        for (const auto& vertex : adjList) {
-            int v = vertex.first;
-            if (parent[v] != -1) {
-                cout << "Edge: (" << parent[v] << " - " << v << ")\n";
-                totalWeight += key[v];
-            }
-        }
-
-        cout << "Total weight of MST: " << totalWeight << endl;
-    }
-};
-
-
-class MSTFactory {
-public:
-    static MSTAlgorithm* getMSTSolver(const string& algorithm) {
-        if (algorithm == "Prim") {
-            return new PrimMST();
-        } else if (algorithm == "Kruskal") {
-            return new KruskalMST();
-        } else if (algorithm == "Boruvka") {
-            return new BoruvkaMST();
-        } else if (algorithm == "Tarjan") {
-            return new TarjanMST();
-        } else if (algorithm == "Integer") {
-            return new IntegerMST();
-        } else {
-            cout << "Unknown algorithm! Returning Prim's Algorithm by default.\n";
-            return new PrimMST();
+            task();
         }
     }
+
+    std::queue<std::function<void()>> tasks;
+    std::mutex mutex_;
+    std::condition_variable condVar;
+    bool running;
+    std::thread worker;
 };
-
-
-class MSTRequest {
-public:
-    string command;
-    Graph graph;
-
-    MSTRequest(const string& cmd) : command(cmd) {}
-};
-
 
 class ThreadPool {
 private:
-    vector<thread> workers;
-    queue<function<void()>> tasks;
-    mutex queueMutex;
-    condition_variable condition;
-    atomic<bool> stop;
+    std::vector<std::thread> workers;
+    std::queue<std::function<void()>> tasks;
+    std::mutex mutex_;
+    std::condition_variable condVar;
+    bool shutdown = false;
 
 public:
-    ThreadPool(size_t numThreads) : stop(false) {
-        for (size_t i = 0; i < numThreads; ++i) {
+    ThreadPool(size_t threads) {
+        for (size_t i = 0; i < threads; ++i) {
             workers.emplace_back([this] {
                 while (true) {
-                    function<void()> task;
+                    std::function<void()> task;
                     {
-                        unique_lock<mutex> lock(this->queueMutex);
-                        this->condition.wait(lock, [this] {
-                            return this->stop || !this->tasks.empty();
-                        });
-                        if (this->stop && this->tasks.empty()) return;
-                        task = move(this->tasks.front());
-                        this->tasks.pop();
+                        std::unique_lock<std::mutex> lock(mutex_);
+                        condVar.wait(lock, [this] { return shutdown || !tasks.empty(); });
+                        if (shutdown && tasks.empty()) return;
+                        task = std::move(tasks.front());
+                        tasks.pop();
                     }
                     task();
                 }
@@ -474,76 +189,65 @@ public:
 
     ~ThreadPool() {
         {
-            unique_lock<mutex> lock(queueMutex);
-            stop = true;
+            std::unique_lock<std::mutex> lock(mutex_);
+            shutdown = true;
         }
-        condition.notify_all();
-        for (thread &worker: workers) {
-            worker.join();
+        condVar.notify_all();
+        for (std::thread& worker : workers) {
+            if (worker.joinable()) {
+                worker.join();
+            }
         }
     }
 
-    template<class F>
-    void enqueue(F&& f) {
+    void enqueue(std::function<void()> task) {
         {
-            unique_lock<mutex> lock(queueMutex);
-            tasks.emplace(forward<F>(f));
+            std::lock_guard<std::mutex> lock(mutex_);
+            tasks.push(std::move(task));
         }
-        condition.notify_one();
+        condVar.notify_one();
     }
+
+    
+
 };
-
-
-class MSTServer {
-private:
-    Graph graph;
-    ThreadPool pool;
-
-public:
-    MSTServer(size_t numThreads) : pool(numThreads) {}
-
-    void processRequest(const string& request) {
-        stringstream ss(request);
-        string command;
-        ss >> command;
-
-        if (command == "addEdge") {
-            int u, v, weight;
-            ss >> u >> v >> weight;
-            graph.addEdge(u, v, weight);
-            cout << "Added edge (" << u << ", " << v << ") with weight " << weight << endl;
-        } else if (command == "printGraph") {
-            graph.printGraph();
-        } else if (command == "solveMST") {
-            string algorithm;
-            ss >> algorithm;
-            pool.enqueue([this, algorithm]() {
-                MSTAlgorithm* solver = MSTFactory::getMSTSolver(algorithm);
-                solver->solve(graph);
-                delete solver; 
-            });
-        } else {
-            //cout << "Unknown command: " << command << endl;
-        }
-    }
-};
-
 
 int main() {
-    MSTServer server(4); 
-
-
-    string command;
+    int vertices = 5; 
+    Graph graph(vertices);
 
     while (true) {
-        cout << "\nEnter command (addEdge, printGraph, solveMST <algorithm>, or exit): ";
-        getline(cin, command);
+        std::cout << "Enter command (addEdge, printGraph, solveMST <algorithm>, or exit): ";
+        std::string command;
+        std::cin >> command;
 
-        if (command == "exit") {
+        if (command == "addEdge") {
+            int src, dest, weight;
+            std::cin >> src >> dest >> weight;
+            graph.addEdge(src, dest, weight);
+            std::cout << "Edge added.\n";
+        } else if (command == "printGraph") {
+            for (int i = 0; i < graph.numVertices(); ++i) {
+                std::cout << "Edges from vertex " << i << ":\n";
+                for (const auto& edge : graph.getEdges(i)) {
+                    std::cout << "  to " << edge.dest << " with weight " << edge.weight << '\n';
+                }
+            }
+        } else if (command == "solveMST") {
+            std::string algorithm;
+            std::cin >> algorithm;
+
+            
+            std::vector<Edge> mstEdges = {/* קשתות MST כתוצאה מאלגוריתם */};
+            int totalWeight = MSTMeasurements::totalWeight(mstEdges);
+            std::cout << "Total Weight of MST: " << totalWeight << '\n';
+
+            
+        } else if (command == "exit") {
             break;
+        } else {
+            std::cout << "Invalid command.\n";
         }
-
-        server.processRequest(command);
     }
 
     return 0;
